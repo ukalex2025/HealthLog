@@ -1,5 +1,5 @@
 // Wellness Tracker Service Worker
-const CACHE_VERSION = 'v2.0.0'; // Increment this when you make changes
+const CACHE_VERSION = 'v2.1.0'; // Increment this when you make changes
 const CACHE_NAME = `wellness-tracker-${CACHE_VERSION}`;
 const urlsToCache = [
     './',
@@ -17,49 +17,36 @@ self.addEventListener('install', event => {
                 console.log('Opened cache:', CACHE_NAME);
                 return cache.addAll(urlsToCache).catch(error => {
                     console.log('Cache addAll failed:', error);
-                    // Continue even if some resources fail to cache
                     return Promise.resolve();
                 });
             })
     );
-    // Force the waiting service worker to become the active service worker
-    self.skipWaiting();
 });
 
-// Fetch event with network-first strategy for HTML files
+// Fetch event - simpler strategy
 self.addEventListener('fetch', event => {
-    // Network-first strategy for HTML files to ensure fresh content
-    if (event.request.url.includes('index.html') || event.request.url.endsWith('/')) {
-        event.respondWith(
-            fetch(event.request)
-                .then(response => {
-                    // Cache the fresh response
+    // Skip non-GET requests
+    if (event.request.method !== 'GET') {
+        return;
+    }
+    
+    event.respondWith(
+        fetch(event.request)
+            .then(response => {
+                // Only cache successful responses
+                if (response.status === 200) {
                     const responseClone = response.clone();
                     caches.open(CACHE_NAME).then(cache => {
                         cache.put(event.request, responseClone);
                     });
-                    return response;
-                })
-                .catch(() => {
-                    // Fallback to cache if network fails
-                    return caches.match(event.request);
-                })
-        );
-    } else {
-        // Cache-first strategy for other resources
-        event.respondWith(
-            caches.match(event.request)
-                .then(response => {
-                    // Return cached version or fetch from network
-                    return response || fetch(event.request);
-                })
-                .catch(error => {
-                    console.log('Fetch failed:', error);
-                    // Fallback to network request
-                    return fetch(event.request);
-                })
-        );
-    }
+                }
+                return response;
+            })
+            .catch(() => {
+                // Fallback to cache if network fails
+                return caches.match(event.request);
+            })
+    );
 });
 
 // Activate event - clean up old caches
@@ -75,9 +62,6 @@ self.addEventListener('activate', event => {
                     }
                 })
             );
-        }).then(() => {
-            // Take control of all clients immediately
-            return self.clients.claim();
         })
     );
 });
@@ -86,7 +70,6 @@ self.addEventListener('activate', event => {
 self.addEventListener('sync', event => {
     if (event.tag === 'background-sync') {
         event.waitUntil(
-            // Implement background sync logic here
             console.log('Background sync triggered')
         );
     }
