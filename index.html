@@ -1,0 +1,2031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wellness Tracker PWA</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#121212">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Wellness Tracker">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23121212'/><text y='50' x='50' text-anchor='middle' dominant-baseline='middle' font-size='60' fill='%234a90e2'>💪</text></svg>">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-color: #e0e0e0;
+            --accent-color: #4a90e2;
+            --input-bg: rgba(255, 255, 255, 0.02);
+            --input-border: rgba(255, 255, 255, 0.08);
+            --blur: blur(10px);
+            --shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+            --dropdown-bg: #1e1e1e;
+            --success-color: #4caf50;
+            --error-color: #f44336;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 10px;
+            min-height: 100vh;
+            touch-action: manipulation;
+            padding-bottom: 100px;
+        }
+
+        .app-header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--glass-bg);
+            backdrop-filter: var(--blur);
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+            padding: 16px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .refresh-btn {
+            background: var(--accent-color);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .refresh-btn:hover {
+            opacity: 0.8;
+        }
+
+        .app-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .status-indicator {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-online {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .status-offline {
+            background: var(--error-color);
+            color: white;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: var(--glass-bg);
+            backdrop-filter: var(--blur);
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        h2 {
+            font-size: 18px;
+            margin: 0;
+            color: var(--accent-color);
+        }
+
+        .collapse-btn {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .collapse-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .section-content {
+            transition: all 0.3s ease;
+        }
+
+        .section-content.collapsed {
+            display: none;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 8px;
+            color: var(--text-color);
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--accent-color);
+            outline: none;
+        }
+
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e0e0e0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+            padding-right: 40px;
+        }
+
+        select option {
+            background-color: var(--dropdown-bg);
+            color: var(--text-color);
+            padding: 8px 12px;
+            border: none;
+        }
+
+        select option:hover {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        select option:checked {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .camera-section {
+            background: rgba(255, 255, 255, 0.02);
+            border: 2px dashed var(--input-border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            text-align: center;
+            position: relative;
+        }
+
+        .camera-section h3 {
+            margin: 0 0 16px 0;
+            color: var(--accent-color);
+            font-size: 16px;
+        }
+
+        .camera-controls, .location-controls {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .camera-btn {
+            padding: 12px 20px;
+            background: var(--accent-color);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .camera-btn:hover {
+            opacity: 0.9;
+        }
+
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .image-item {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+        }
+
+        .image-item img {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .image-item .remove-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: var(--error-color);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s;
+            z-index: 10;
+        }
+
+        .image-item .remove-btn:hover {
+            background: #d32f2f;
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        .image-item {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            transition: all 0.2s;
+        }
+
+        .image-item:hover {
+            border-color: var(--accent-color);
+            box-shadow: 0 4px 12px rgba(74, 144, 226, 0.2);
+        }
+
+        .image-item:hover .remove-btn {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .clear-all-btn {
+            background: var(--error-color);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 8px;
+            transition: all 0.2s;
+        }
+
+        .clear-all-btn:hover {
+            background: #d32f2f;
+            transform: translateY(-1px);
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .quick-btn {
+            padding: 8px 16px;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 20px;
+            color: var(--text-color);
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .quick-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .action-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--glass-bg);
+            backdrop-filter: var(--blur);
+            border-top: 1px solid var(--glass-border);
+            padding: 16px;
+            display: flex;
+            gap: 12px;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            z-index: 1000;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .primary-btn {
+            flex: 1;
+            min-width: 120px;
+            padding: 14px 24px;
+            background: var(--accent-color);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 16px;
+        }
+
+        .primary-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .secondary-btn {
+            padding: 14px 24px;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 8px;
+            color: var(--text-color);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 16px;
+        }
+
+        .secondary-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 16px 24px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 1000;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.success {
+            background: var(--success-color);
+        }
+
+        .toast.error {
+            background: var(--error-color);
+        }
+
+        .entry-summary {
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .entry-summary:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .entry-date {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--accent-color);
+            margin-bottom: 8px;
+        }
+
+        .entry-stats {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            font-size: 14px;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 16px;
+            }
+            
+            .camera-controls {
+                flex-direction: column;
+            }
+            
+            .camera-btn {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .action-bar {
+                flex-direction: column;
+            }
+            
+            .primary-btn {
+                min-width: unset;
+            }
+        }
+
+        .install-banner {
+            background: linear-gradient(135deg, var(--accent-color), #6ba3f5);
+            color: white;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            display: none;
+        }
+
+        .install-banner.show {
+            display: flex;
+        }
+
+        .install-text {
+            font-weight: 500;
+        }
+
+        .install-btn {
+            background: white;
+            color: var(--accent-color);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .checkbox-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+            margin-bottom: 0;
+        }
+
+        .checkbox-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+            cursor: pointer;
+        }
+
+        @media (max-width: 600px) {
+            .checkbox-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* New styles for sleep input */
+        .sleep-input-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 8px;
+            align-items: center;
+        }
+
+        .sleep-input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sleep-label {
+            font-size: 12px;
+            color: var(--text-color);
+            margin-bottom: 4px;
+        }
+
+        .sleep-input {
+            width: 80px;
+            padding: 8px;
+            text-align: center;
+            font-size: 16px;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 6px;
+            color: var(--text-color);
+        }
+
+        .quick-sleep-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+
+        .quick-sleep-btn {
+            padding: 8px 12px;
+            background: var(--accent-color);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-weight: 500;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            font-size: 14px;
+        }
+
+        .quick-sleep-btn:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+            <div class="app-header">
+            <h1 class="app-title">💪 Wellness Tracker</h1>
+            <div class="header-controls">
+                <button class="refresh-btn" onclick="forceRefresh()" title="Force refresh app">🔄</button>
+                <div class="status-indicator" id="status">
+                    <span id="status-text">Online</span>
+                </div>
+            </div>
+        </div>
+
+    <div class="install-banner" id="install-banner">
+        <div class="install-text">📱 Install this app for a better experience!</div>
+        <button class="install-btn" onclick="installApp()">Install</button>
+    </div>
+
+    <div class="container">
+        <div class="section-header">
+            <h2>📅 Daily Entry</h2>
+            <button class="collapse-btn" onclick="toggleSection('daily-section')">▼</button>
+        </div>
+        <div class="section-content" id="daily-section">
+            <div class="form-group">
+                <label>Date</label>
+                <input type="date" id="date" onchange="handleDateChange()">
+            </div>
+            <div class="form-group">
+                <label>Tag</label>
+                <select id="tag">
+                    <option>(none)</option>
+                    <option>Workday</option>
+                    <option>Weekend</option>
+                    <option>Rest day</option>
+                    <option>Travel</option>
+                    <option>Family</option>
+                    <option>Date</option>
+                    <option>Solo</option>
+                    <option>Project day</option>
+                    <option>Sick day</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Protocol</label>
+                <select id="protocol">
+                    <option>On Plan</option>
+                    <option>Flexible</option>
+                    <option>Deviation</option>
+                    <option>Random Binge</option>
+                    <option>Sick Day</option>
+                    <option>Reset</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="section-header">
+            <h2>📍 Location</h2>
+            <button class="collapse-btn" onclick="toggleSection('location-section')">▼</button>
+        </div>
+        <div class="section-content" id="location-section">
+            <div class="form-group">
+                <label>GPS Location</label>
+                <div class="location-controls">
+                    <button type="button" class="camera-btn" onclick="getCurrentLocation()">📍 Get Current Location</button>
+                    <button type="button" class="camera-btn" onclick="clearLocation()">🗑️ Clear Location</button>
+                </div>
+                <div id="location-status" style="margin-top: 10px; font-size: 14px; color: var(--text-color);"></div>
+                <div id="location-display" style="margin-top: 10px; padding: 10px; background: var(--input-bg); border-radius: 8px; display: none;">
+                    <div><strong>Latitude:</strong> <span id="latitude-display"></span></div>
+                    <div><strong>Longitude:</strong> <span id="longitude-display"></span></div>
+                    <div><strong>Accuracy:</strong> <span id="accuracy-display"></span> meters</div>
+                    <div><strong>Address:</strong> <span id="address-display">Loading...</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="section-header">
+            <h2>📸 Screenshots & Images</h2>
+            <button class="collapse-btn" onclick="toggleSection('images-section')">▼</button>
+        </div>
+        <div class="section-content" id="images-section">
+            <div class="camera-section">
+                <h3>🛏️ Sleep Data</h3>
+                <div class="camera-controls">
+                    <button class="camera-btn" onclick="captureImage('sleep')">📷 Take Photo</button>
+                    <button class="camera-btn" onclick="selectImage('sleep')">📁 Choose File</button>
+                </div>
+                <input type="file" id="sleep-input" accept="image/*" multiple style="display: none;" onchange="handleFileSelect('sleep')">
+                <div class="image-grid" id="sleep-images"></div>
+                <button class="clear-all-btn" onclick="clearAllImages('sleep')" style="display: none;" id="clear-sleep-btn">🗑️ Clear All Sleep Images</button>
+            </div>
+
+            <div class="camera-section">
+                <h3>❤️ Heart Rate Data</h3>
+                <div class="camera-controls">
+                    <button class="camera-btn" onclick="captureImage('heart')">📷 Take Photo</button>
+                    <button class="camera-btn" onclick="selectImage('heart')">📁 Choose File</button>
+                </div>
+                <input type="file" id="heart-input" accept="image/*" multiple style="display: none;" onchange="handleFileSelect('heart')">
+                <div class="image-grid" id="heart-images"></div>
+                <button class="clear-all-btn" onclick="clearAllImages('heart')" style="display: none;" id="clear-heart-btn">🗑️ Clear All Heart Rate Images</button>
+            </div>
+
+            <div class="camera-section">
+                <h3>🏃 Exercise Data</h3>
+                <div class="camera-controls">
+                    <button class="camera-btn" onclick="captureImage('exercise')">📷 Take Photo</button>
+                    <button class="camera-btn" onclick="selectImage('exercise')">📁 Choose File</button>
+                </div>
+                <input type="file" id="exercise-input" accept="image/*" multiple style="display: none;" onchange="handleFileSelect('exercise')">
+                <div class="image-grid" id="exercise-images"></div>
+                <button class="clear-all-btn" onclick="clearAllImages('exercise')" style="display: none;" id="clear-exercise-btn">🗑️ Clear All Exercise Images</button>
+            </div>
+
+            <div class="camera-section">
+                <h3>📱 Other Screenshots</h3>
+                <div class="camera-controls">
+                    <button class="camera-btn" onclick="captureImage('other')">📷 Take Photo</button>
+                    <button class="camera-btn" onclick="selectImage('other')">📁 Choose File</button>
+                </div>
+                <input type="file" id="other-input" accept="image/*" multiple style="display: none;" onchange="handleFileSelect('other')">
+                <div class="image-grid" id="other-images"></div>
+                <button class="clear-all-btn" onclick="clearAllImages('other')" style="display: none;" id="clear-other-btn">🗑️ Clear All Other Images</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="section-header">
+            <h2>😴 Sleep & Recovery</h2>
+            <button class="collapse-btn" onclick="toggleSection('sleep-section')">▼</button>
+        </div>
+        <div class="section-content" id="sleep-section">
+            <div class="form-group">
+                <label>Sleep Duration</label>
+                <div class="sleep-input-container">
+                    <div class="sleep-input-group">
+                        <label class="sleep-label">Hours</label>
+                        <input type="number" min="0" max="24" id="sleep-hours" placeholder="7" class="sleep-input">
+                    </div>
+                    <div class="sleep-input-group">
+                        <label class="sleep-label">Minutes</label>
+                        <input type="number" min="0" max="59" id="sleep-minutes" placeholder="30" class="sleep-input">
+                    </div>
+                </div>
+                <div class="quick-sleep-buttons">
+                    <button type="button" class="quick-sleep-btn" onclick="setSleepTime(6, 0)">6h</button>
+                    <button type="button" class="quick-sleep-btn" onclick="setSleepTime(6, 30)">6.5h</button>
+                    <button type="button" class="quick-sleep-btn" onclick="setSleepTime(7, 0)">7h</button>
+                    <button type="button" class="quick-sleep-btn" onclick="setSleepTime(7, 30)">7.5h</button>
+                    <button type="button" class="quick-sleep-btn" onclick="setSleepTime(8, 0)">8h</button>
+                    <button type="button" class="quick-sleep-btn" onclick="setSleepTime(8, 30)">8.5h</button>
+                    <button type="button" class="quick-sleep-btn" onclick="setSleepTime(9, 0)">9h</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Sleep Quality</label>
+                <select id="sleep-quality">
+                    <option>Select...</option>
+                    <option>Very Poor</option>
+                    <option>Poor</option>
+                    <option>Fair</option>
+                    <option>Good</option>
+                    <option>Excellent</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Sleep Notes</label>
+                <textarea id="sleep-notes" placeholder="How did you sleep?"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="section-header">
+            <h2>📊 Body Metrics</h2>
+            <button class="collapse-btn" onclick="toggleSection('body-section')">▼</button>
+        </div>
+        <div class="section-content" id="body-section">
+            <div class="form-group">
+                <label>Weight (kg)</label>
+                <input type="number" step="0.1" id="weight" placeholder="70.0">
+            </div>
+            <div class="form-group">
+                <label>Body Fat % (est)</label>
+                <input type="number" step="0.1" id="body-fat" placeholder="15.0">
+            </div>
+            <div class="form-group">
+                <label>Resting Heart Rate</label>
+                <input type="number" id="resting-hr" placeholder="60">
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="section-header">
+            <h2>🍎 Nutrition</h2>
+            <button class="collapse-btn" onclick="toggleSection('nutrition-section')">▼</button>
+        </div>
+        <div class="section-content" id="nutrition-section">
+            <div class="form-group">
+                <label>Add to Meal</label>
+                <select id="add-to-meal">
+                    <option>Breakfast</option>
+                    <option>Morning Snack</option>
+                    <option>Lunch</option>
+                    <option>Dinner</option>
+                    <option>Evening Snack</option>
+                    <option>Other Foods</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Quick-Add Foods</label>
+                <div class="quick-actions">
+                    <button class="quick-btn" onclick="addQuickFood('Chicken')">Chicken</button>
+                    <button class="quick-btn" onclick="addQuickFood('Steak')">Steak</button>
+                    <button class="quick-btn" onclick="addQuickFood('Eggs')">Eggs</button>
+                    <button class="quick-btn" onclick="addQuickFood('Greek Yogurt')">Greek Yogurt</button>
+                    <button class="quick-btn" onclick="addQuickFood('Avocado')">Avocado</button>
+                    <button class="quick-btn" onclick="addQuickFood('Seeds')">Seeds</button>
+                    <button class="quick-btn" onclick="addQuickFood('Spinach')">Spinach</button>
+                    <button class="quick-btn" onclick="addQuickFood('Salad')">Salad</button>
+                    <button class="quick-btn" onclick="addQuickFood('Berries')">Berries</button>
+                    <button class="quick-btn" onclick="addQuickFood('Tzatziki')">Tzatziki</button>
+                    <button class="quick-btn" onclick="addQuickFood('Nuts')">Nuts</button>
+                    <button class="quick-btn" onclick="addQuickFood('Air-Fried Bacon')">Air-Fried Bacon</button>
+                    <button class="quick-btn" onclick="addQuickFood('Maize-Free Wrap')">Maize-Free Wrap</button>
+                    <button class="quick-btn" onclick="addQuickFood('Turkey mince')">Turkey mince</button>
+                    <button class="quick-btn" onclick="addQuickFood('Basmati rice')">Basmati rice</button>
+                    <button class="quick-btn" onclick="addQuickFood('Sweet potato')">Sweet potato</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Breakfast</label>
+                <input type="text" id="breakfast" placeholder="Eggs, avocado, spinach">
+            </div>
+            <div class="form-group">
+                <label>Morning Snack</label>
+                <input type="text" id="morning-snack" placeholder="Greek yogurt, berries">
+            </div>
+            <div class="form-group">
+                <label>Lunch</label>
+                <input type="text" id="lunch" placeholder="Chicken salad, nuts">
+            </div>
+            <div class="form-group">
+                <label>Dinner</label>
+                <input type="text" id="dinner" placeholder="Steak, sweet potato">
+            </div>
+            <div class="form-group">
+                <label>Evening Snack</label>
+                <input type="text" id="evening-snack" placeholder="Nuts, seeds">
+            </div>
+            <div class="form-group">
+                <label>Other Foods</label>
+                <input type="text" id="other-foods" placeholder="Any other foods">
+            </div>
+            <div class="form-group">
+                <label>Water (L)</label>
+                <input type="number" step="0.1" id="water" placeholder="2.5">
+            </div>
+            <div class="form-group">
+                <label>Portion Control</label>
+                <select id="portion-control">
+                    <option>-</option>
+                    <option>Less than planned</option>
+                    <option>On plan</option>
+                    <option>More than planned</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Gut Status</label>
+                <select id="gut-status">
+                    <option>-</option>
+                    <option>Perfect</option>
+                    <option>Bloating</option>
+                    <option>Gassy</option>
+                    <option>Disturbed</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="section-header">
+            <h2>💊 Supplements</h2>
+            <button class="collapse-btn" onclick="toggleSection('supplements-section')">▼</button>
+        </div>
+        <div class="section-content" id="supplements-section">
+            <div class="form-group">
+                <label>Quick Add Stack</label>
+                <div class="checkbox-grid" id="supplements-grid">
+                    <label class="checkbox-item"><input type="checkbox" value="Multivitamin"> Multivitamin</label>
+                    <label class="checkbox-item"><input type="checkbox" value="Omega-3"> Omega-3</label>
+                    <label class="checkbox-item"><input type="checkbox" value="Creatine"> Creatine</label>
+                    <label class="checkbox-item"><input type="checkbox" value="Magnesium Glycinate"> Magnesium Glycinate</label>
+                    <label class="checkbox-item"><input type="checkbox" value="Vitamin B12"> Vitamin B12</label>
+                    <label class="checkbox-item"><input type="checkbox" value="L-Methylfolate"> L-Methylfolate</label>
+                    <label class="checkbox-item"><input type="checkbox" value="Vitamin D3"> Vitamin D3</label>
+                    <label class="checkbox-item"><input type="checkbox" value="L-Theanine"> L-Theanine</label>
+                    <label class="checkbox-item"><input type="checkbox" value="L-Glycine"> L-Glycine</label>
+                    <label class="checkbox-item"><input type="checkbox" value="ACV"> ACV</label>
+                    <label class="checkbox-item"><input type="checkbox" value="Ginger+Lemon Drink"> Ginger+Lemon Drink</label>
+                    <label class="checkbox-item"><input type="checkbox" value="Kefir"> Kefir</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Other Supplements</label>
+                <input type="text" id="other-supplements" placeholder="Additional supplements">
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="section-header">
+            <h2>🏃 Training & Activity</h2>
+            <button class="collapse-btn" onclick="toggleSection('training-section')">▼</button>
+        </div>
+        <div class="section-content" id="training-section">
+            <div class="form-group">
+                <label>Activity Type</label>
+                <select id="training-type">
+                    <option>Press-ups</option>
+                    <option>Dog walk</option>
+                    <option>Run</option>
+                    <option>Gym</option>
+                    <option>Calisthenics</option>
+                    <option>Active Recovery</option>
+                    <option>None</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Duration (minutes)</label>
+                <input type="number" id="duration" placeholder="30">
+            </div>
+            <div class="form-group">
+                <label>Steps</label>
+                <input type="number" id="steps" placeholder="10000">
+            </div>
+            <div class="form-group">
+                <label>Intensity</label>
+                <select id="intensity">
+                    <option>-</option>
+                    <option>Low</option>
+                    <option>Medium</option>
+                    <option>High</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Quality</label>
+                <select id="quality">
+                    <option>-</option>
+                    <option>Poor</option>
+                    <option>Decent</option>
+                    <option>Strong</option>
+                    <option>Peak</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="section-header">
+            <h2>🧠 Mental Health & Wellbeing</h2>
+            <button class="collapse-btn" onclick="toggleSection('mental-section')">▼</button>
+        </div>
+        <div class="section-content" id="mental-section">
+            <div class="form-group">
+                <label>Mood (1-10)</label>
+                <input type="number" min="1" max="10" id="mood" placeholder="7">
+            </div>
+            <div class="form-group">
+                <label>Stress (1-10)</label>
+                <input type="number" min="1" max="10" id="stress" placeholder="3">
+            </div>
+            <div class="form-group">
+                <label>Mental Health</label>
+                <select id="mental-health">
+                    <option>-</option>
+                    <option>Stable</option>
+                    <option>Anxious</option>
+                    <option>Flat</option>
+                    <option>Down</option>
+                    <option>Motivated</option>
+                    <option>Resilient</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Mood Triggers</label>
+                <div class="checkbox-grid" id="mood-triggers-grid">
+                    <label class="checkbox-item"><input type="checkbox" value="Work stress"> Work stress</label>
+                    <label class="checkbox-item"><input type="checkbox" value="Slept badly"> Slept badly</label>
+                    <label class="checkbox-item"><input type="checkbox" value="Felt strong"> Felt strong</label>
+                    <label class="checkbox-item"><input type="checkbox" value="Social win"> Social win</label>
+                    <label class="checkbox-item"><input type="checkbox" value="Lonely"> Lonely</label>
+                    <label class="checkbox-item"><input type="checkbox" value="Great food"> Great food</label>
+                    <label class="checkbox-item"><input type="checkbox" value="Dog walk"> Dog walk</label>
+                    <label class="checkbox-item"><input type="checkbox" value="Weather"> Weather</label>
+                    <label class="checkbox-item"><input type="checkbox" value="None"> None</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Memory / Focus Notes</label>
+                <textarea id="memory-notes" placeholder="How's your mental clarity today?"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Gratitude</label>
+                <textarea id="gratitude" placeholder="What are you grateful for today?"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Journaling / Notes</label>
+                <textarea id="journal-notes" placeholder="How are you feeling?"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Time Outdoors (min)</label>
+                <input type="number" id="outdoors" placeholder="60">
+            </div>
+            <div class="form-group">
+                <label>Cold Exposure (min)</label>
+                <input type="number" id="cold-exposure" placeholder="5">
+            </div>
+            <div class="form-group">
+                <label>Dog Walk (min)</label>
+                <input type="number" id="dog-walk" placeholder="30">
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="section-header">
+            <h2>🍻 Alcohol, Weed, Extras</h2>
+            <button class="collapse-btn" onclick="toggleSection('extras-section')">▼</button>
+        </div>
+        <div class="section-content" id="extras-section">
+            <div class="form-group">
+                <label>Alcohol (units)</label>
+                <input type="number" id="alcohol" placeholder="0">
+            </div>
+            <div class="form-group">
+                <label>Weed (joints)</label>
+                <input type="number" id="weed-joints" placeholder="0">
+            </div>
+            <div class="form-group">
+                <label>Weed (bongs)</label>
+                <input type="number" id="weed-bongs" placeholder="0">
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="section-header">
+            <h2>📊 Recent Entries</h2>
+            <button class="collapse-btn" onclick="toggleSection('entries-section')">▼</button>
+        </div>
+        <div class="section-content" id="entries-section">
+            <div id="entries-list"></div>
+        </div>
+    </div>
+
+    <div class="action-bar">
+        <button class="secondary-btn" onclick="generateReport()">📄 Export PDF</button>
+    </div>
+
+    <div class="toast" id="toast">
+        <span id="toast-message"></span>
+    </div>
+
+    <script>
+        // Enhanced PWA Wellness Tracker
+        let entries = [];
+        let imageStore = { sleep: [], heart: [], exercise: [], other: [] };
+        let deferredPrompt;
+        let isOnline = navigator.onLine;
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+            registerServiceWorker();
+            setupPWAInstall();
+            setupOfflineDetection();
+        });
+
+        function initializeApp() {
+            // Set today's date as default
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('date').value = today;
+            
+            loadData();
+            renderEntries();
+            updateStatus();
+        }
+
+        // Debug function to check current state
+        function debugState() {
+            console.log('=== DEBUG STATE ===');
+            console.log('Entries:', entries);
+            console.log('Current date:', new Date().toISOString().split('T')[0]);
+            console.log('Date input value:', document.getElementById('date').value);
+            if (entries.length > 0) {
+                console.log('Saved entry date:', entries[0].date);
+                console.log('Date match:', entries[0].date === new Date().toISOString().split('T')[0]);
+            }
+            console.log('==================');
+        }
+
+        function registerServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                // Add cache-busting parameter to force service worker update
+                navigator.serviceWorker.register('sw.js?v=' + Date.now())
+                    .then(registration => {
+                        console.log('SW registered');
+                        
+                        // Check for updates
+                        registration.addEventListener('updatefound', () => {
+                            console.log('Service Worker update found');
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    console.log('New service worker installed, reloading...');
+                                    window.location.reload();
+                                }
+                            });
+                        });
+                    })
+                    .catch(error => console.log('SW registration failed:', error));
+            }
+        }
+
+        function setupPWAInstall() {
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                // Show install banner after a short delay
+                setTimeout(() => {
+                    document.getElementById('install-banner').classList.add('show');
+                }, 2000);
+            });
+        }
+
+        function installApp() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        document.getElementById('install-banner').classList.remove('show');
+                        showToast('App installed successfully!', 'success');
+                    }
+                    deferredPrompt = null;
+                });
+            } else {
+                showToast('Installation not available', 'error');
+            }
+        }
+
+        function setupOfflineDetection() {
+            window.addEventListener('online', () => {
+                isOnline = true;
+                updateStatus();
+            });
+
+            window.addEventListener('offline', () => {
+                isOnline = false;
+                updateStatus();
+            });
+        }
+
+        function updateStatus() {
+            const statusEl = document.getElementById('status');
+            const statusText = document.getElementById('status-text');
+            
+            if (isOnline) {
+                statusEl.className = 'status-indicator status-online';
+                statusText.textContent = 'Online';
+            } else {
+                statusEl.className = 'status-indicator status-offline';
+                statusText.textContent = 'Offline';
+            }
+        }
+
+        function toggleSection(sectionId) {
+            const section = document.getElementById(sectionId);
+            const btn = event.target;
+            
+            section.classList.toggle('collapsed');
+            btn.textContent = section.classList.contains('collapsed') ? '▶' : '▼';
+        }
+
+        function loadData() {
+            try {
+                // Don't load previous entries automatically - start fresh each time
+                // Only load images for current date
+                const savedImages = localStorage.getItem('wellness-images-pwa');
+                
+                if (savedImages) {
+                    imageStore = JSON.parse(savedImages);
+                    // Only render images for current date when page loads
+                    renderAllImages();
+                }
+                
+                // Start with empty entries array - no previous data loaded
+                entries = [];
+                
+                showToast('App ready - start fresh today!', 'success');
+            } catch (error) {
+                console.error('Error loading data:', error);
+                showToast('Error loading data', 'error');
+                entries = [];
+                imageStore = { sleep: [], heart: [], exercise: [], other: [] };
+            }
+        }
+
+        function saveData() {
+            try {
+                // Only save current entry, not historical data
+                localStorage.setItem('wellness-entries-pwa', JSON.stringify(entries));
+                localStorage.setItem('wellness-images-pwa', JSON.stringify(imageStore));
+                console.log('Data saved successfully');
+            } catch (error) {
+                console.error('Error saving data:', error);
+                showToast('Error saving data - storage might be full.', 'error');
+            }
+        }
+
+        function captureImage(category) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.capture = 'environment';
+            input.onchange = () => handleFileSelect(category, input);
+            input.click();
+        }
+
+        function selectImage(category) {
+            document.getElementById(category + '-input').click();
+        }
+
+        function handleFileSelect(category, input = null) {
+            const fileInput = input || document.getElementById(category + '-input');
+            const files = fileInput.files;
+            
+            if (files.length === 0) return;
+            
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const imageData = e.target.result;
+                    const imageId = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    
+                    const imageObj = {
+                        id: imageId,
+                        data: imageData,
+                        name: file.name,
+                        date: document.getElementById('date').value,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    imageStore[category].push(imageObj);
+                    renderImages(category);
+                    
+                    if (saveData()) {
+                        showToast(`Image added to ${category}`, 'success');
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+            
+            fileInput.value = '';
+        }
+
+        function renderImages(category) {
+            const container = document.getElementById(category + '-images');
+            const currentDate = document.getElementById('date').value;
+            const categoryImages = imageStore[category].filter(img => img.date === currentDate);
+            
+            container.innerHTML = '';
+            
+            categoryImages.forEach(image => {
+                const imageEl = document.createElement('div');
+                imageEl.className = 'image-item';
+                imageEl.innerHTML = `
+                    <img src="${image.data}" alt="${image.name}">
+                    <button class="remove-btn" onclick="removeImage('${category}', '${image.id}')">×</button>
+                `;
+                container.appendChild(imageEl);
+            });
+            
+            // Show/hide clear all button based on image count
+            const clearBtn = document.getElementById(`clear-${category}-btn`);
+            if (clearBtn) {
+                clearBtn.style.display = categoryImages.length > 0 ? 'block' : 'none';
+            }
+        }
+
+        function renderAllImages() {
+            ['sleep', 'heart', 'exercise', 'other'].forEach(category => {
+                renderImages(category);
+            });
+        }
+
+        function removeImage(category, imageId) {
+            if (confirm('Are you sure you want to delete this image?')) {
+                imageStore[category] = imageStore[category].filter(img => img.id !== imageId);
+                renderImages(category);
+                saveData();
+                showToast('Image removed', 'success');
+            }
+        }
+
+        function addQuickFood(food) {
+            const meal = document.getElementById('add-to-meal').value.toLowerCase().replace(/\s+/g, '-');
+            const input = document.getElementById(meal);
+            if (input) {
+                input.value = (input.value ? input.value + ', ' + food : food);
+            } else {
+                console.error('No input found for ' + meal);
+            }
+        }
+
+        function getSelectedCheckboxes(gridId) {
+            const checkboxes = document.querySelectorAll(`#${gridId} input:checked`);
+            return Array.from(checkboxes).map(cb => cb.value).join(', ');
+        }
+
+        function setCheckboxes(gridId, values) {
+            const checkboxes = document.querySelectorAll(`#${gridId} input[type="checkbox"]`);
+            const valueArray = values ? values.split(', ').map(v => v.trim()) : [];
+            checkboxes.forEach(cb => {
+                cb.checked = valueArray.includes(cb.value);
+            });
+        }
+
+        function saveEntry() {
+            const entryData = {
+                id: Date.now().toString(),
+                date: document.getElementById('date').value,
+                tag: document.getElementById('tag').value,
+                protocol: document.getElementById('protocol').value,
+                
+                // Sleep
+                sleepHours: document.getElementById('sleep-hours').value,
+                sleepMinutes: document.getElementById('sleep-minutes').value,
+                sleepQuality: document.getElementById('sleep-quality').value,
+                sleepNotes: document.getElementById('sleep-notes').value,
+                
+                // Body metrics
+                weight: document.getElementById('weight').value,
+                bodyFat: document.getElementById('body-fat').value,
+                restingHr: document.getElementById('resting-hr').value,
+                
+                // Nutrition
+                breakfast: document.getElementById('breakfast').value,
+                morningSnack: document.getElementById('morning-snack').value,
+                lunch: document.getElementById('lunch').value,
+                dinner: document.getElementById('dinner').value,
+                eveningSnack: document.getElementById('evening-snack').value,
+                otherFoods: document.getElementById('other-foods').value,
+                water: document.getElementById('water').value,
+                portionControl: document.getElementById('portion-control').value,
+                gutStatus: document.getElementById('gut-status').value,
+                
+                // Supplements
+                supplements: getSelectedCheckboxes('supplements-grid'),
+                otherSupplements: document.getElementById('other-supplements').value,
+                
+                // Training
+                trainingType: document.getElementById('training-type').value,
+                duration: document.getElementById('duration').value,
+                steps: document.getElementById('steps').value,
+                intensity: document.getElementById('intensity').value,
+                quality: document.getElementById('quality').value,
+                
+                // Mental health
+                mood: document.getElementById('mood').value,
+                stress: document.getElementById('stress').value,
+                mentalHealth: document.getElementById('mental-health').value,
+                moodTriggers: getSelectedCheckboxes('mood-triggers-grid'),
+                memoryNotes: document.getElementById('memory-notes').value,
+                gratitude: document.getElementById('gratitude').value,
+                journalNotes: document.getElementById('journal-notes').value,
+                outdoors: document.getElementById('outdoors').value,
+                coldExposure: document.getElementById('cold-exposure').value,
+                dogWalk: document.getElementById('dog-walk').value,
+                
+                // Extras
+                alcohol: document.getElementById('alcohol').value,
+                weedJoints: document.getElementById('weed-joints').value,
+                weedBongs: document.getElementById('weed-bongs').value,
+                
+                // Location
+                location: currentLocation,
+                
+                timestamp: new Date().toISOString(),
+                images: {
+                    sleep: imageStore.sleep.filter(img => img.date === document.getElementById('date').value),
+                    heart: imageStore.heart.filter(img => img.date === document.getElementById('date').value),
+                    exercise: imageStore.exercise.filter(img => img.date === document.getElementById('date').value),
+                    other: imageStore.other.filter(img => img.date === document.getElementById('date').value)
+                }
+            };
+            
+            console.log('Saving entry with date:', entryData.date);
+            console.log('Current date:', new Date().toISOString().split('T')[0]);
+            
+            if (!entryData.date) {
+                showToast('Please select a date before adding.', 'error');
+                return;
+            }
+            
+            // Replace any existing entry (only keep current entry)
+            entries = [entryData];
+            
+            saveData();
+            renderEntries();
+            clearForm();
+            showToast('Entry saved successfully', 'success');
+        }
+
+        // GPS Location functionality
+        let currentLocation = null;
+
+        function getCurrentLocation() {
+            const statusDiv = document.getElementById('location-status');
+            const displayDiv = document.getElementById('location-display');
+            
+            if (!navigator.geolocation) {
+                statusDiv.innerHTML = '❌ Geolocation is not supported by this browser.';
+                return;
+            }
+            
+            statusDiv.innerHTML = '📍 Getting your location...';
+            displayDiv.style.display = 'none';
+            
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    currentLocation = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                        accuracy: position.coords.accuracy,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    // Display location data
+                    document.getElementById('latitude-display').textContent = currentLocation.latitude.toFixed(6);
+                    document.getElementById('longitude-display').textContent = currentLocation.longitude.toFixed(6);
+                    document.getElementById('accuracy-display').textContent = currentLocation.accuracy.toFixed(1);
+                    
+                    statusDiv.innerHTML = '✅ Location captured successfully!';
+                    displayDiv.style.display = 'block';
+                    
+                    // Get address from coordinates
+                    getAddressFromCoords(currentLocation.latitude, currentLocation.longitude);
+                    
+                    showToast('Location captured successfully', 'success');
+                },
+                function(error) {
+                    let errorMessage = '❌ Unable to get location: ';
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMessage += 'Permission denied. Please allow location access.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMessage += 'Location information unavailable.';
+                            break;
+                        case error.TIMEOUT:
+                            errorMessage += 'Location request timed out.';
+                            break;
+                        default:
+                            errorMessage += 'Unknown error occurred.';
+                            break;
+                    }
+                    statusDiv.innerHTML = errorMessage;
+                    showToast('Failed to get location', 'error');
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 60000
+                }
+            );
+        }
+
+        function getAddressFromCoords(lat, lng) {
+            const addressDisplay = document.getElementById('address-display');
+            addressDisplay.textContent = 'Loading address...';
+            
+            // Use reverse geocoding to get address
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.display_name) {
+                        addressDisplay.textContent = data.display_name;
+                    } else {
+                        addressDisplay.textContent = 'Address not available';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error getting address:', error);
+                    addressDisplay.textContent = 'Address not available';
+                });
+        }
+
+        function clearLocation() {
+            currentLocation = null;
+            document.getElementById('location-status').innerHTML = '';
+            document.getElementById('location-display').style.display = 'none';
+            showToast('Location cleared', 'success');
+        }
+
+        function forceRefresh() {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(registrations => {
+                    for (let registration of registrations) {
+                        registration.unregister();
+                    }
+                }).then(() => {
+                    // Clear all caches
+                    if ('caches' in window) {
+                        caches.keys().then(cacheNames => {
+                            return Promise.all(
+                                cacheNames.map(cacheName => {
+                                    return caches.delete(cacheName);
+                                })
+                            );
+                        });
+                    }
+                    // Reload the page
+                    window.location.reload(true);
+                });
+            } else {
+                window.location.reload(true);
+            }
+        }
+
+        function copyLastEntry() {
+            if (entries.length === 0) {
+                showToast('No previous entry to copy', 'error');
+                return;
+            }
+            
+            const lastEntry = entries[0]; // Only one entry exists
+            
+            // Copy form data except date and images
+            document.getElementById('date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('tag').value = lastEntry.tag || '';
+            document.getElementById('protocol').value = lastEntry.protocol || '';
+            
+            // Sleep
+            document.getElementById('sleep-hours').value = lastEntry.sleepHours || '';
+            document.getElementById('sleep-minutes').value = lastEntry.sleepMinutes || '';
+            document.getElementById('sleep-quality').value = lastEntry.sleepQuality || '';
+            document.getElementById('sleep-notes').value = lastEntry.sleepNotes || '';
+            
+            // Body metrics
+            document.getElementById('weight').value = lastEntry.weight || '';
+            document.getElementById('body-fat').value = lastEntry.bodyFat || '';
+            document.getElementById('resting-hr').value = lastEntry.restingHr || '';
+            
+            // Nutrition
+            document.getElementById('breakfast').value = lastEntry.breakfast || '';
+            document.getElementById('morning-snack').value = lastEntry.morningSnack || '';
+            document.getElementById('lunch').value = lastEntry.lunch || '';
+            document.getElementById('dinner').value = lastEntry.dinner || '';
+            document.getElementById('evening-snack').value = lastEntry.eveningSnack || '';
+            document.getElementById('other-foods').value = lastEntry.otherFoods || '';
+            document.getElementById('water').value = lastEntry.water || '';
+            document.getElementById('portion-control').value = lastEntry.portionControl || '';
+            document.getElementById('gut-status').value = lastEntry.gutStatus || '';
+            
+            // Supplements
+            setCheckboxes('supplements-grid', lastEntry.supplements || '');
+            document.getElementById('other-supplements').value = lastEntry.otherSupplements || '';
+            
+            // Training
+            document.getElementById('training-type').value = lastEntry.trainingType || '';
+            document.getElementById('duration').value = lastEntry.duration || '';
+            document.getElementById('steps').value = lastEntry.steps || '';
+            document.getElementById('intensity').value = lastEntry.intensity || '';
+            document.getElementById('quality').value = lastEntry.quality || '';
+            
+            // Mental health
+            document.getElementById('mood').value = lastEntry.mood || '';
+            document.getElementById('stress').value = lastEntry.stress || '';
+            document.getElementById('mental-health').value = lastEntry.mentalHealth || '';
+            setCheckboxes('mood-triggers-grid', lastEntry.moodTriggers || '');
+            document.getElementById('memory-notes').value = lastEntry.memoryNotes || '';
+            document.getElementById('gratitude').value = lastEntry.gratitude || '';
+            document.getElementById('journal-notes').value = lastEntry.journalNotes || '';
+            document.getElementById('outdoors').value = lastEntry.outdoors || '';
+            document.getElementById('cold-exposure').value = lastEntry.coldExposure || '';
+            document.getElementById('dog-walk').value = lastEntry.dogWalk || '';
+            
+            // Extras
+            document.getElementById('alcohol').value = lastEntry.alcohol || '';
+            document.getElementById('weed-joints').value = lastEntry.weedJoints || '';
+            document.getElementById('weed-bongs').value = lastEntry.weedBongs || '';
+            
+            showToast('Previous entry copied', 'success');
+        }
+
+        function clearForm() {
+            const inputs = document.querySelectorAll('input:not([type="date"]), select, textarea');
+            inputs.forEach(input => {
+                if (input.type === 'checkbox') {
+                    input.checked = false;
+                } else if (input.type !== 'file') {
+                    input.value = '';
+                }
+            });
+            document.getElementById('date').value = new Date().toISOString().split('T')[0];
+        }
+
+        function renderEntries() {
+            const container = document.getElementById('entries-list');
+            container.innerHTML = '';
+            
+            if (entries.length === 0) {
+                container.innerHTML = '<div class="entry-summary"><div class="entry-date">No entries yet</div><div class="entry-stats"><span class="stat-item">Start by filling out today\'s data and saving</span></div></div>';
+                return;
+            }
+            
+            // Only show today's entry
+            const todayEntry = entries[0]; // Since we only keep current entry
+            const totalImages = Object.values(todayEntry.images).reduce((sum, imgs) => sum + imgs.length, 0);
+            
+            const entryEl = document.createElement('div');
+            entryEl.className = 'entry-summary';
+            entryEl.innerHTML = `
+                <div class="entry-date">${new Date(todayEntry.date).toLocaleDateString()}</div>
+                <div class="entry-stats">
+                    <span class="stat-item">🏷️ ${todayEntry.tag}</span>
+                    <span class="stat-item">📋 ${todayEntry.protocol}</span>
+                    <span class="stat-item">😴 ${formatSleepTime(todayEntry.sleepHours, todayEntry.sleepMinutes) || 'No sleep data'} (${todayEntry.sleepQuality || 'No quality'})</span>
+                    <span class="stat-item">⚖️ ${todayEntry.weight || 'No weight'}kg</span>
+                    <span class="stat-item">🏃 ${todayEntry.trainingType || 'No training'}</span>
+                    <span class="stat-item">💧 ${todayEntry.water || 'No water'}L</span>
+                    <span class="stat-item">📸 ${totalImages} images</span>
+                    <span class="stat-item">😊 ${todayEntry.mood || 'No mood'}/10</span>
+                    <span class="stat-item">😰 ${todayEntry.stress || 'No stress'}/10</span>
+                </div>
+            `;
+            
+            container.appendChild(entryEl);
+        }
+
+        function exportData() {
+            const data = {
+                entries: entries,
+                images: imageStore,
+                exportDate: new Date().toISOString(),
+                version: '2.0'
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `wellness-data-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showToast('Data exported', 'success');
+        }
+
+        function generateReport() {
+            // Check if jsPDF is available
+            if (typeof window.jspdf === 'undefined') {
+                showToast('PDF library not loaded. Please refresh the page.', 'error');
+                return;
+            }
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Get the date from the form (whatever date is selected)
+            const selectedDate = document.getElementById('date').value;
+            
+            if (!selectedDate) {
+                showToast('Please select a date first', 'error');
+                return;
+            }
+            
+            let yPosition = 20;
+            const pageHeight = doc.internal.pageSize.height;
+            const margin = 20;
+            
+            // Title
+            doc.setFontSize(20);
+            doc.text('Wellness Tracker Report', margin, yPosition);
+            yPosition += 15;
+            
+            // Date
+            doc.setFontSize(12);
+            doc.text(`Date: ${selectedDate}`, margin, yPosition);
+            yPosition += 10;
+            
+            doc.text(`Generated: ${new Date().toLocaleDateString()}`, margin, yPosition);
+            yPosition += 20;
+            
+            // Get data directly from form (no need to save first)
+            const formData = {
+                date: selectedDate,
+                tag: document.getElementById('tag').value,
+                protocol: document.getElementById('protocol').value,
+                
+                // Sleep
+                sleepHours: document.getElementById('sleep-hours').value,
+                sleepMinutes: document.getElementById('sleep-minutes').value,
+                sleepQuality: document.getElementById('sleep-quality').value,
+                sleepNotes: document.getElementById('sleep-notes').value,
+                
+                // Body metrics
+                weight: document.getElementById('weight').value,
+                bodyFat: document.getElementById('body-fat').value,
+                restingHr: document.getElementById('resting-hr').value,
+                
+                // Nutrition
+                breakfast: document.getElementById('breakfast').value,
+                morningSnack: document.getElementById('morning-snack').value,
+                lunch: document.getElementById('lunch').value,
+                dinner: document.getElementById('dinner').value,
+                eveningSnack: document.getElementById('evening-snack').value,
+                otherFoods: document.getElementById('other-foods').value,
+                water: document.getElementById('water').value,
+                portionControl: document.getElementById('portion-control').value,
+                gutStatus: document.getElementById('gut-status').value,
+                
+                // Supplements
+                supplements: getSelectedCheckboxes('supplements-grid'),
+                otherSupplements: document.getElementById('other-supplements').value,
+                
+                // Training
+                trainingType: document.getElementById('training-type').value,
+                duration: document.getElementById('duration').value,
+                steps: document.getElementById('steps').value,
+                intensity: document.getElementById('intensity').value,
+                quality: document.getElementById('quality').value,
+                
+                // Mental health
+                mood: document.getElementById('mood').value,
+                stress: document.getElementById('stress').value,
+                mentalHealth: document.getElementById('mental-health').value,
+                moodTriggers: getSelectedCheckboxes('mood-triggers-grid'),
+                memoryNotes: document.getElementById('memory-notes').value,
+                gratitude: document.getElementById('gratitude').value,
+                journalNotes: document.getElementById('journal-notes').value,
+                outdoors: document.getElementById('outdoors').value,
+                coldExposure: document.getElementById('cold-exposure').value,
+                dogWalk: document.getElementById('dog-walk').value,
+                
+                // Extras
+                alcohol: document.getElementById('alcohol').value,
+                weedJoints: document.getElementById('weed-joints').value,
+                weedBongs: document.getElementById('weed-bongs').value,
+                
+                // Location
+                location: currentLocation,
+                
+                // Images for selected date
+                images: {
+                    sleep: imageStore.sleep.filter(img => img.date === selectedDate),
+                    heart: imageStore.heart.filter(img => img.date === selectedDate),
+                    exercise: imageStore.exercise.filter(img => img.date === selectedDate),
+                    other: imageStore.other.filter(img => img.date === selectedDate)
+                }
+            };
+            
+            // Entry header
+            doc.setFontSize(14);
+            doc.text(`${new Date(selectedDate).toLocaleDateString()} - ${formData.tag || 'No tag'}`, margin, yPosition);
+            yPosition += 10;
+            
+            doc.setFontSize(10);
+            
+            // Basic info
+            if (formData.protocol) {
+                doc.text(`Protocol: ${formData.protocol}`, margin, yPosition);
+                yPosition += 8;
+            }
+            
+            // Sleep
+            if (formData.sleepHours || formData.sleepMinutes || formData.sleepQuality) {
+                const sleepTime = formatSleepTime(formData.sleepHours, formData.sleepMinutes);
+                const sleepDisplay = sleepTime ? `${sleepTime} (${formData.sleepQuality || 'No quality'})` : `No time data (${formData.sleepQuality || 'No quality'})`;
+                doc.text(`Sleep: ${sleepDisplay}`, margin, yPosition);
+                yPosition += 8;
+            }
+            
+            // Body metrics
+            if (formData.weight || formData.bodyFat || formData.restingHr) {
+                doc.text(`Body: ${formData.weight || 'N/A'}kg, ${formData.bodyFat || 'N/A'}% BF, ${formData.restingHr || 'N/A'} RHR`, margin, yPosition);
+                yPosition += 8;
+            }
+            
+            // Nutrition
+            if (formData.water || formData.breakfast || formData.lunch || formData.dinner) {
+                doc.text(`Nutrition: ${formData.water || 'N/A'}L water, ${formData.portionControl || 'N/A'} portions, ${formData.gutStatus || 'N/A'} gut`, margin, yPosition);
+                yPosition += 8;
+                if (formData.breakfast) {
+                    doc.text(`  Breakfast: ${formData.breakfast}`, margin, yPosition);
+                    yPosition += 8;
+                }
+                if (formData.lunch) {
+                    doc.text(`  Lunch: ${formData.lunch}`, margin, yPosition);
+                    yPosition += 8;
+                }
+                if (formData.dinner) {
+                    doc.text(`  Dinner: ${formData.dinner}`, margin, yPosition);
+                    yPosition += 8;
+                }
+            }
+            
+            // Supplements
+            if (formData.supplements || formData.otherSupplements) {
+                doc.text(`Supplements: ${formData.supplements || ''} ${formData.otherSupplements || ''}`, margin, yPosition);
+                yPosition += 8;
+            }
+            
+            // Training
+            if (formData.trainingType && formData.trainingType !== 'None') {
+                doc.text(`Training: ${formData.trainingType} (${formData.duration || 'N/A'}min, ${formData.intensity || 'N/A'} intensity, ${formData.quality || 'N/A'} quality)`, margin, yPosition);
+                yPosition += 8;
+                if (formData.steps) {
+                    doc.text(`  Steps: ${formData.steps}`, margin, yPosition);
+                    yPosition += 8;
+                }
+            }
+            
+            // Mental health
+            if (formData.mood || formData.stress || formData.mentalHealth) {
+                doc.text(`Mental: Mood ${formData.mood || 'N/A'}/10, Stress ${formData.stress || 'N/A'}/10, ${formData.mentalHealth || 'N/A'}`, margin, yPosition);
+                yPosition += 8;
+                if (formData.moodTriggers && formData.moodTriggers !== 'None') {
+                    doc.text(`  Triggers: ${formData.moodTriggers}`, margin, yPosition);
+                    yPosition += 8;
+                }
+            }
+            
+            // Activities
+            if (formData.outdoors || formData.coldExposure || formData.dogWalk) {
+                doc.text(`Activities: ${formData.outdoors || 'N/A'}min outdoors, ${formData.coldExposure || 'N/A'}min cold, ${formData.dogWalk || 'N/A'}min dog walk`, margin, yPosition);
+                yPosition += 8;
+            }
+            
+            // Extras
+            if (formData.alcohol || formData.weedJoints || formData.weedBongs) {
+                doc.text(`Substances: ${formData.alcohol || 'N/A'} alcohol units, ${formData.weedJoints || 'N/A'} joints, ${formData.weedBongs || 'N/A'} bongs`, margin, yPosition);
+                yPosition += 8;
+            }
+            
+            // Location
+            if (formData.location) {
+                doc.text(`Location: ${formData.location.latitude.toFixed(6)}, ${formData.location.longitude.toFixed(6)}`, margin, yPosition);
+                yPosition += 8;
+                doc.text(`Accuracy: ${formData.location.accuracy.toFixed(1)} meters`, margin, yPosition);
+                yPosition += 8;
+            }
+            
+            // Notes
+            if (formData.sleepNotes || formData.memoryNotes || formData.gratitude || formData.journalNotes) {
+                doc.text('Notes:', margin, yPosition);
+                yPosition += 8;
+                if (formData.sleepNotes) {
+                    const sleepLines = doc.splitTextToSize(`Sleep: ${formData.sleepNotes}`, 150);
+                    doc.text(sleepLines, margin + 5, yPosition);
+                    yPosition += sleepLines.length * 6;
+                }
+                if (formData.memoryNotes) {
+                    const memoryLines = doc.splitTextToSize(`Memory: ${formData.memoryNotes}`, 150);
+                    doc.text(memoryLines, margin + 5, yPosition);
+                    yPosition += memoryLines.length * 6;
+                }
+                if (formData.gratitude) {
+                    const gratitudeLines = doc.splitTextToSize(`Gratitude: ${formData.gratitude}`, 150);
+                    doc.text(gratitudeLines, margin + 5, yPosition);
+                    yPosition += gratitudeLines.length * 6;
+                }
+                if (formData.journalNotes) {
+                    const journalLines = doc.splitTextToSize(`Journal: ${formData.journalNotes}`, 150);
+                    doc.text(journalLines, margin + 5, yPosition);
+                    yPosition += journalLines.length * 6;
+                }
+            }
+            
+            // Add images for the selected date - one page per image
+            const allImages = [
+                ...formData.images.sleep.map(img => ({...img, category: 'Sleep'})),
+                ...formData.images.heart.map(img => ({...img, category: 'Heart'})),
+                ...formData.images.exercise.map(img => ({...img, category: 'Exercise'})),
+                ...formData.images.other.map(img => ({...img, category: 'Other'}))
+            ];
+            
+            if (allImages.length > 0) {
+                // Add a separator page before images
+                doc.addPage();
+                yPosition = 20;
+                
+                doc.setFontSize(16);
+                doc.text('Screenshots & Images', margin, yPosition);
+                yPosition += 20;
+                
+                doc.setFontSize(10);
+                doc.text(`Date: ${selectedDate}`, margin, yPosition);
+                yPosition += 15;
+                
+                allImages.forEach((image, index) => {
+                    // Add a new page for each image
+                    if (index > 0) {
+                        doc.addPage();
+                        yPosition = 20;
+                    }
+                    
+                    try {
+                        // Image title
+                        doc.setFontSize(14);
+                        doc.text(`${image.category} Screenshot`, margin, yPosition);
+                        yPosition += 8;
+                        
+                        doc.setFontSize(10);
+                        doc.text(`Date: ${selectedDate}`, margin, yPosition);
+                        yPosition += 8;
+                        
+                        doc.text(`File: ${image.name}`, margin, yPosition);
+                        yPosition += 15;
+                        
+                        // Calculate image dimensions to fit on page while maintaining aspect ratio
+                        const pageWidth = doc.internal.pageSize.width;
+                        const pageHeight = doc.internal.pageSize.height;
+                        const maxWidth = pageWidth - (margin * 2);
+                        const maxHeight = pageHeight - yPosition - margin;
+                        
+                        // Create a temporary image to get dimensions
+                        const tempImg = new Image();
+                        tempImg.src = image.data;
+                        
+                        // For now, use a reasonable size that should work for most images
+                        // The image will be scaled to fit within the page bounds
+                        const imageWidth = Math.min(maxWidth, 160); // Larger than before
+                        const imageHeight = Math.min(maxHeight, 200); // Larger than before
+                        
+                        // Center the image horizontally
+                        const imageX = margin + (maxWidth - imageWidth) / 2;
+                        
+                        doc.addImage(image.data, 'JPEG', imageX, yPosition, imageWidth, imageHeight);
+                        
+                        // Add some space after the image
+                        yPosition += imageHeight + 20;
+                        
+                        // Add page number
+                        doc.setFontSize(8);
+                        doc.text(`Page ${doc.getCurrentPageInfo().pageNumber}`, pageWidth - 30, pageHeight - 10);
+                        
+                    } catch (error) {
+                        console.error('Error adding image:', error);
+                        doc.setFontSize(10);
+                        doc.text(`Error loading image: ${image.name}`, margin, yPosition);
+                        yPosition += 8;
+                    }
+                });
+            }
+            
+            doc.save(`wellness-report-${selectedDate}.pdf`);
+            showToast(`PDF report generated for ${selectedDate}`, 'success');
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toast-message');
+            
+            toastMessage.textContent = message;
+            toast.className = `toast ${type}`;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Update date change handler to refresh images
+        function handleDateChange() {
+            renderAllImages();
+        }
+
+        function clearAllImages(category) {
+            const currentDate = document.getElementById('date').value;
+            const categoryImages = imageStore[category].filter(img => img.date === currentDate);
+            
+            if (categoryImages.length === 0) {
+                showToast(`No ${category} images to clear for today`, 'error');
+                return;
+            }
+            
+            // Confirm before clearing all
+            if (confirm(`Are you sure you want to delete all ${categoryImages.length} ${category} images for today?`)) {
+                imageStore[category] = imageStore[category].filter(img => img.date !== currentDate);
+                renderImages(category);
+                saveData();
+                showToast(`All ${category} images for today cleared`, 'success');
+            }
+        }
+
+        function setSleepTime(hours, minutes) {
+            document.getElementById('sleep-hours').value = hours;
+            document.getElementById('sleep-minutes').value = minutes;
+        }
+
+        function formatSleepTime(hours, minutes) {
+            if (!hours && !minutes) return '';
+            if (hours && !minutes) return `${hours}h`;
+            if (!hours && minutes) return `${minutes}m`;
+            return `${hours}h ${minutes}m`;
+        }
+    </script>
+</body>
+</html> 
