@@ -1122,19 +1122,18 @@
 
         function registerServiceWorker() {
             if ('serviceWorker' in navigator) {
-                // Add cache-busting parameter to force service worker update
-                navigator.serviceWorker.register('sw.js?v=' + Date.now())
+                navigator.serviceWorker.register('sw.js')
                     .then(registration => {
                         console.log('SW registered');
                         
-                        // Check for updates
+                        // Check for updates but don't auto-reload
                         registration.addEventListener('updatefound', () => {
                             console.log('Service Worker update found');
                             const newWorker = registration.installing;
                             newWorker.addEventListener('statechange', () => {
                                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    console.log('New service worker installed, reloading...');
-                                    window.location.reload();
+                                    console.log('New service worker installed - manual refresh needed');
+                                    showToast('App updated! Tap refresh button to reload.', 'success');
                                 }
                             });
                         });
@@ -1524,27 +1523,36 @@
         }
 
         function forceRefresh() {
+            showToast('Refreshing app...', 'success');
+            
+            // Clear localStorage to ensure fresh start
+            localStorage.removeItem('wellness-entries-pwa');
+            localStorage.removeItem('wellness-images-pwa');
+            
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.getRegistrations().then(registrations => {
-                    for (let registration of registrations) {
-                        registration.unregister();
-                    }
+                    const unregisterPromises = registrations.map(registration => registration.unregister());
+                    return Promise.all(unregisterPromises);
                 }).then(() => {
                     // Clear all caches
                     if ('caches' in window) {
-                        caches.keys().then(cacheNames => {
-                            return Promise.all(
-                                cacheNames.map(cacheName => {
-                                    return caches.delete(cacheName);
-                                })
-                            );
+                        return caches.keys().then(cacheNames => {
+                            const deletePromises = cacheNames.map(cacheName => caches.delete(cacheName));
+                            return Promise.all(deletePromises);
                         });
                     }
-                    // Reload the page
-                    window.location.reload(true);
+                    return Promise.resolve();
+                }).then(() => {
+                    // Small delay to ensure cleanup is complete
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 500);
+                }).catch(error => {
+                    console.error('Error during refresh:', error);
+                    window.location.reload();
                 });
             } else {
-                window.location.reload(true);
+                window.location.reload();
             }
         }
 
