@@ -1087,26 +1087,6 @@
     </div>
 
     <script>
-        // --- EMERGENCY FIX: Unregister all service workers and clear all caches, then reload ---
-        // Remove this block after the first successful load!
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.getRegistrations().then(registrations => {
-            for (let registration of registrations) {
-              registration.unregister();
-            }
-          }).then(() => {
-            if ('caches' in window) {
-              caches.keys().then(cacheNames => {
-                return Promise.all(cacheNames.map(cacheName => caches.delete(cacheName)));
-              }).then(() => {
-                window.location.reload();
-              });
-            } else {
-              window.location.reload();
-            }
-          });
-        }
-
         // Enhanced PWA Wellness Tracker
         let entries = [];
         let imageStore = { sleep: [], heart: [], exercise: [], other: [] };
@@ -1129,6 +1109,7 @@
             loadData();
             renderEntries();
             updateStatus();
+            renderExerciseList();
         }
 
         // Debug function to check current state
@@ -1864,14 +1845,14 @@
                 yPosition += 8;
             }
             
-            // Multi-exercise export
-            if (window.exercises && exercises.length > 0) {
+            // Activities
+            if (exercises && exercises.length > 0) {
                 doc.text('Activities:', margin, yPosition);
                 yPosition += 8;
                 exercises.forEach((ex, i) => {
                     let line = `${i+1}. ${ex.type}`;
                     if (ex.duration) line += ` - ${ex.duration} min`;
-                    if (ex.steps) line += ` - ${ex.steps} steps`;
+                    if (ex.steps) line += ` - ${ex.steps} steps/reps`;
                     if (ex.intensity && ex.intensity !== '-') line += ` - ${ex.intensity} intensity`;
                     if (ex.quality && ex.quality !== '-') line += ` - ${ex.quality} quality`;
                     doc.text(line, margin + 5, yPosition);
@@ -2065,7 +2046,7 @@
             return `${hours}h ${minutes}m`;
         }
 
-        // --- Multi-exercise logic ---
+        // Multi-exercise functionality
         let exercises = [];
 
         function renderExerciseList() {
@@ -2081,7 +2062,7 @@
                 li.innerHTML = `
                     <span style='font-weight:600;'>${ex.type}</span>
                     <span style='margin-left:8px;'>${ex.duration ? ex.duration + ' min' : ''}</span>
-                    <span style='margin-left:8px;'>${ex.steps ? ex.steps + ' steps' : ''}</span>
+                    <span style='margin-left:8px;'>${ex.steps ? ex.steps + ' steps/reps' : ''}</span>
                     <span style='margin-left:8px;'>${ex.intensity && ex.intensity !== '-' ? ex.intensity + ' intensity' : ''}</span>
                     <span style='margin-left:8px;'>${ex.quality && ex.quality !== '-' ? ex.quality + ' quality' : ''}</span>
                     <button onclick='removeExercise(${idx})' style='margin-left:12px; background:var(--error-color); color:white; border:none; border-radius:4px; padding:2px 8px; cursor:pointer;'>Remove</button>
@@ -2096,10 +2077,12 @@
             const steps = document.getElementById('exercise-steps').value;
             const intensity = document.getElementById('exercise-intensity').value;
             const quality = document.getElementById('exercise-quality').value;
+            
             if (!type || (duration === '' && steps === '')) {
-                showToast('Please enter an activity and duration or steps.', 'error');
+                showToast('Please enter an activity and duration or steps/reps.', 'error');
                 return;
             }
+            
             exercises.push({
                 type,
                 duration: duration ? parseInt(duration) : '',
@@ -2107,17 +2090,22 @@
                 intensity,
                 quality
             });
+            
             renderExerciseList();
+            
             // Clear inputs
             document.getElementById('exercise-duration').value = '';
             document.getElementById('exercise-steps').value = '';
             document.getElementById('exercise-intensity').value = '-';
             document.getElementById('exercise-quality').value = '-';
+            
+            showToast('Activity added!', 'success');
         }
 
         function removeExercise(idx) {
             exercises.splice(idx, 1);
             renderExerciseList();
+            showToast('Activity removed', 'success');
         }
 
         function quickAddExercise(type) {
@@ -2129,36 +2117,16 @@
                 quality: '-'
             });
             renderExerciseList();
+            showToast(`${type} added!`, 'success');
         }
-
-        // --- Patch saveEntry and loadData to use exercises array ---
-        const originalSaveEntry = saveEntry;
-        saveEntry = function() {
-            // ...existing code...
-            // Instead of reading single training fields, use exercises array
-            const entryData = {
-                // ...existing fields...
-                exercises: [...exercises],
-                // ...rest of fields...
-            };
-            // ...rest of save logic...
-        };
-
-        function loadExercisesFromEntry(entry) {
-            exercises = entry && entry.exercises ? [...entry.exercises] : [];
-            renderExerciseList();
-        }
-
-        // Patch initializeApp to clear exercises on new day
-        const originalInitializeApp = initializeApp;
-        initializeApp = function() {
-            originalInitializeApp();
-            exercises = [];
-            renderExerciseList();
-        };
-
-        // On page load, render empty exercise list
-        renderExerciseList();
     </script>
 </body>
 </html> 
+
+
+
+
+
+
+
+
