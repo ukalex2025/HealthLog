@@ -933,43 +933,47 @@
         </div>
         <div class="section-content" id="training-section">
             <div class="form-group">
-                <label>Activity Type</label>
-                <select id="training-type">
-                    <option>Press-ups</option>
-                    <option>Dog walk</option>
-                    <option>Run</option>
-                    <option>Gym</option>
-                    <option>Calisthenics</option>
-                    <option>Active Recovery</option>
-                    <option>None</option>
-                </select>
+                <label>Add Activity</label>
+                <div class="quick-actions">
+                    <button class="quick-btn" onclick="quickAddExercise('Press-ups')">Press-ups</button>
+                    <button class="quick-btn" onclick="quickAddExercise('Gym')">Gym</button>
+                    <button class="quick-btn" onclick="quickAddExercise('Dog walk')">Dog walk</button>
+                    <button class="quick-btn" onclick="quickAddExercise('Walk')">Walk</button>
+                    <button class="quick-btn" onclick="quickAddExercise('Run')">Run</button>
+                    <button class="quick-btn" onclick="quickAddExercise('Daily steps')">Daily steps</button>
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;">
+                    <select id="exercise-type">
+                        <option>Press-ups</option>
+                        <option>Dog walk</option>
+                        <option>Walk</option>
+                        <option>Run</option>
+                        <option>Gym</option>
+                        <option>Calisthenics</option>
+                        <option>Active Recovery</option>
+                        <option>Daily steps</option>
+                    </select>
+                    <input type="number" id="exercise-duration" placeholder="Duration (min)" style="width: 120px;">
+                    <input type="number" id="exercise-steps" placeholder="Steps/Reps" style="width: 100px;">
+                    <select id="exercise-intensity">
+                        <option>-</option>
+                        <option>Low</option>
+                        <option>Medium</option>
+                        <option>High</option>
+                    </select>
+                    <select id="exercise-quality">
+                        <option>-</option>
+                        <option>Poor</option>
+                        <option>Decent</option>
+                        <option>Strong</option>
+                        <option>Peak</option>
+                    </select>
+                    <button type="button" class="camera-btn" onclick="addExercise()">Add</button>
+                </div>
             </div>
             <div class="form-group">
-                <label>Duration (minutes)</label>
-                <input type="number" id="duration" placeholder="30">
-            </div>
-            <div class="form-group">
-                <label>Steps</label>
-                <input type="number" id="steps" placeholder="10000">
-            </div>
-            <div class="form-group">
-                <label>Intensity</label>
-                <select id="intensity">
-                    <option>-</option>
-                    <option>Low</option>
-                    <option>Medium</option>
-                    <option>High</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Quality</label>
-                <select id="quality">
-                    <option>-</option>
-                    <option>Poor</option>
-                    <option>Decent</option>
-                    <option>Strong</option>
-                    <option>Peak</option>
-                </select>
+                <label>Today's Activities</label>
+                <ul id="exercise-list" style="list-style: none; padding: 0;"></ul>
             </div>
         </div>
     </div>
@@ -2034,6 +2038,124 @@
             if (!hours && minutes) return `${minutes}m`;
             return `${hours}h ${minutes}m`;
         }
+
+        // --- Multi-exercise logic ---
+        let exercises = [];
+
+        function renderExerciseList() {
+            const list = document.getElementById('exercise-list');
+            list.innerHTML = '';
+            if (exercises.length === 0) {
+                list.innerHTML = '<li style="color: #888;">No activities added yet.</li>';
+                return;
+            }
+            exercises.forEach((ex, idx) => {
+                const li = document.createElement('li');
+                li.style.marginBottom = '8px';
+                li.innerHTML = `
+                    <span style='font-weight:600;'>${ex.type}</span>
+                    <span style='margin-left:8px;'>${ex.duration ? ex.duration + ' min' : ''}</span>
+                    <span style='margin-left:8px;'>${ex.steps ? ex.steps + ' steps' : ''}</span>
+                    <span style='margin-left:8px;'>${ex.intensity && ex.intensity !== '-' ? ex.intensity + ' intensity' : ''}</span>
+                    <span style='margin-left:8px;'>${ex.quality && ex.quality !== '-' ? ex.quality + ' quality' : ''}</span>
+                    <button onclick='removeExercise(${idx})' style='margin-left:12px; background:var(--error-color); color:white; border:none; border-radius:4px; padding:2px 8px; cursor:pointer;'>Remove</button>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function addExercise() {
+            const type = document.getElementById('exercise-type').value;
+            const duration = document.getElementById('exercise-duration').value;
+            const steps = document.getElementById('exercise-steps').value;
+            const intensity = document.getElementById('exercise-intensity').value;
+            const quality = document.getElementById('exercise-quality').value;
+            if (!type || (duration === '' && steps === '')) {
+                showToast('Please enter an activity and duration or steps.', 'error');
+                return;
+            }
+            exercises.push({
+                type,
+                duration: duration ? parseInt(duration) : '',
+                steps: steps ? parseInt(steps) : '',
+                intensity,
+                quality
+            });
+            renderExerciseList();
+            // Clear inputs
+            document.getElementById('exercise-duration').value = '';
+            document.getElementById('exercise-steps').value = '';
+            document.getElementById('exercise-intensity').value = '-';
+            document.getElementById('exercise-quality').value = '-';
+        }
+
+        function removeExercise(idx) {
+            exercises.splice(idx, 1);
+            renderExerciseList();
+        }
+
+        function quickAddExercise(type) {
+            exercises.push({
+                type,
+                duration: '',
+                steps: '',
+                intensity: '-',
+                quality: '-'
+            });
+            renderExerciseList();
+        }
+
+        // --- Patch saveEntry and loadData to use exercises array ---
+        const originalSaveEntry = saveEntry;
+        saveEntry = function() {
+            // ...existing code...
+            // Instead of reading single training fields, use exercises array
+            const entryData = {
+                // ...existing fields...
+                exercises: [...exercises],
+                // ...rest of fields...
+            };
+            // ...rest of save logic...
+        };
+
+        function loadExercisesFromEntry(entry) {
+            exercises = entry && entry.exercises ? [...entry.exercises] : [];
+            renderExerciseList();
+        }
+
+        // Patch initializeApp to clear exercises on new day
+        const originalInitializeApp = initializeApp;
+        initializeApp = function() {
+            originalInitializeApp();
+            exercises = [];
+            renderExerciseList();
+        };
+
+        // --- Patch generateReport to use exercises array ---
+        const originalGenerateReport = generateReport;
+        generateReport = function() {
+            // ...existing code...
+            // Instead of formData.trainingType, use formData.exercises
+            // After the 'Supplements' section, add:
+            if (formData.exercises && formData.exercises.length > 0) {
+                doc.text('Activities:', margin, yPosition);
+                yPosition += 8;
+                formData.exercises.forEach((ex, i) => {
+                    let line = `${i+1}. ${ex.type}`;
+                    if (ex.duration) line += ` - ${ex.duration} min`;
+                    if (ex.steps) line += ` - ${ex.steps} steps`;
+                    if (ex.intensity && ex.intensity !== '-') line += ` - ${ex.intensity} intensity`;
+                    if (ex.quality && ex.quality !== '-') line += ` - ${ex.quality} quality`;
+                    doc.text(line, margin + 5, yPosition);
+                    yPosition += 7;
+                });
+                yPosition += 3;
+            }
+            // ...rest of PDF logic...
+        };
+
+        // On page load, render empty exercise list
+        renderExerciseList();
     </script>
 </body>
 </html> 
