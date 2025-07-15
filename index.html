@@ -1844,14 +1844,20 @@
                 yPosition += 8;
             }
             
-            // Training
-            if (formData.trainingType && formData.trainingType !== 'None') {
-                doc.text(`Training: ${formData.trainingType} (${formData.duration || 'N/A'}min, ${formData.intensity || 'N/A'} intensity, ${formData.quality || 'N/A'} quality)`, margin, yPosition);
+            // Multi-exercise export
+            if (window.exercises && exercises.length > 0) {
+                doc.text('Activities:', margin, yPosition);
                 yPosition += 8;
-                if (formData.steps) {
-                    doc.text(`  Steps: ${formData.steps}`, margin, yPosition);
-                    yPosition += 8;
-                }
+                exercises.forEach((ex, i) => {
+                    let line = `${i+1}. ${ex.type}`;
+                    if (ex.duration) line += ` - ${ex.duration} min`;
+                    if (ex.steps) line += ` - ${ex.steps} steps`;
+                    if (ex.intensity && ex.intensity !== '-') line += ` - ${ex.intensity} intensity`;
+                    if (ex.quality && ex.quality !== '-') line += ` - ${ex.quality} quality`;
+                    doc.text(line, margin + 5, yPosition);
+                    yPosition += 7;
+                });
+                yPosition += 3;
             }
             
             // Mental health
@@ -2129,29 +2135,6 @@
             originalInitializeApp();
             exercises = [];
             renderExerciseList();
-        };
-
-        // --- Patch generateReport to use exercises array ---
-        const originalGenerateReport = generateReport;
-        generateReport = function() {
-            // ...existing code...
-            // Instead of formData.trainingType, use formData.exercises
-            // After the 'Supplements' section, add:
-            if (formData.exercises && formData.exercises.length > 0) {
-                doc.text('Activities:', margin, yPosition);
-                yPosition += 8;
-                formData.exercises.forEach((ex, i) => {
-                    let line = `${i+1}. ${ex.type}`;
-                    if (ex.duration) line += ` - ${ex.duration} min`;
-                    if (ex.steps) line += ` - ${ex.steps} steps`;
-                    if (ex.intensity && ex.intensity !== '-') line += ` - ${ex.intensity} intensity`;
-                    if (ex.quality && ex.quality !== '-') line += ` - ${ex.quality} quality`;
-                    doc.text(line, margin + 5, yPosition);
-                    yPosition += 7;
-                });
-                yPosition += 3;
-            }
-            // ...rest of PDF logic...
         };
 
         // On page load, render empty exercise list
