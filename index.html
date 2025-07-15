@@ -1087,6 +1087,26 @@
     </div>
 
     <script>
+        // --- EMERGENCY FIX: Unregister all service workers and clear all caches, then reload ---
+        // Remove this block after the first successful load!
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(registrations => {
+            for (let registration of registrations) {
+              registration.unregister();
+            }
+          }).then(() => {
+            if ('caches' in window) {
+              caches.keys().then(cacheNames => {
+                return Promise.all(cacheNames.map(cacheName => caches.delete(cacheName)));
+              }).then(() => {
+                window.location.reload();
+              });
+            } else {
+              window.location.reload();
+            }
+          });
+        }
+
         // Enhanced PWA Wellness Tracker
         let entries = [];
         let imageStore = { sleep: [], heart: [], exercise: [], other: [] };
